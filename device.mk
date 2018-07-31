@@ -174,9 +174,6 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     vendor.lineage.livedisplay@1.0-service-sdm
 
-# Doze mode
-PRODUCT_PACKAGES += \
-    XiaomiDoze
 
 # DRM
 PRODUCT_PACKAGES += \

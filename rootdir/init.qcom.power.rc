@@ -72,14 +72,14 @@ on enable-low-power
     #  configure governor settings for little cluster
     write /sys/devices/system/cpu/cpu0/online 1
     write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor conservative
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/above_hispeed_delay "19000 1094400:39000"
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/go_hispeed_load 96
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/timer_rate 20000
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/hispeed_freq 960000
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/io_is_busy 0
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/target_loads "1 960000:87 1094400:92 1344000:97"
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/min_sample_time 40000
-    write /sys/devices/system/cpu/cpu0/cpufreq/interactive/sampling_down_factor 40000
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/above_hispeed_delay "19000 1094400:39000"
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/go_hispeed_load 96
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/timer_rate 20000
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/hispeed_freq 960000
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/io_is_busy 0
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/target_loads "1 960000:87 1094400:92 1344000:97"
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/min_sample_time 40000
+    write /sys/devices/system/cpu/cpu0/cpufreq/conservative/sampling_down_factor 40000
     write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 422400
 
     # configure governor settings for big cluster

@@ -104,6 +104,7 @@ QCamera3Memory::~QCamera3Memory()
  *==========================================================================*/
 int QCamera3Memory::cacheOpsInternal(uint32_t index, unsigned int cmd, void *vaddr)
 {
+    ATRACE_CALL();
     Mutex::Autolock lock(mLock);
 
     struct ion_flush_data cache_inv_data;
@@ -584,7 +585,6 @@ ALLOC_FAILED:
 int QCamera3HeapMemory::allocateOne(size_t size)
 {
     unsigned int heap_id_mask = 0x1 << ION_IOMMU_HEAP_ID;
-    uint32_t i;
     int rc = NO_ERROR;
 
     //Note that now we allow incremental allocation. In other words, we allow
@@ -741,7 +741,7 @@ QCamera3GrallocMemory::~QCamera3GrallocMemory()
  *              none-zero failure code
  *==========================================================================*/
 int QCamera3GrallocMemory::registerBuffer(buffer_handle_t *buffer,
-        cam_stream_type_t type)
+        __unused cam_stream_type_t type)
 {
     status_t ret = NO_ERROR;
     struct ion_fd_data ion_info_fd;
@@ -1041,6 +1041,16 @@ int32_t QCamera3GrallocMemory::getBufferIndex(uint32_t frameNumber)
  *==========================================================================*/
 int QCamera3GrallocMemory::cacheOps(uint32_t index, unsigned int cmd)
 {
+    int rc = 0;
+    bool needToInvalidate = false;
+    struct private_handle_t *privateHandle = NULL;
+    privateHandle = (struct private_handle_t *)getBufferHandle(index);
+
+    if(privateHandle->flags &
+         (private_handle_t::PRIV_FLAGS_NON_CPU_WRITER)){
+           needToInvalidate = true;
+    }
+
     if (index >= MM_CAMERA_MAX_NUM_FRAMES) {
         LOGE("Index out of bounds");
         return -1;
@@ -1051,7 +1061,15 @@ int QCamera3GrallocMemory::cacheOps(uint32_t index, unsigned int cmd)
         return BAD_INDEX;
     }
 
-    return cacheOpsInternal(index, cmd, mPtr[index]);
+    LOGD("needToInvalidate %d buf idx %d", needToInvalidate, index);
+    if(((cmd == ION_IOC_INV_CACHES) || (cmd == ION_IOC_CLEAN_INV_CACHES))
+        && needToInvalidate) {
+        rc = cacheOpsInternal(index, cmd, mPtr[index]);
+    }
+    else if(cmd == ION_IOC_CLEAN_CACHES) {
+        rc = cacheOpsInternal(index, cmd, mPtr[index]);
+    }
+    return rc;
 }
 
 /*===========================================================================

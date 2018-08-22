@@ -92,7 +92,6 @@ private:
 
         bool mScaleEnabled;
         bool mIsUnderScaling;   //if in scale status
-        bool mScaleDirection;   // 0: Upscaling; 1: Downscaling
 
         // picture size cnt that need scale operation
         size_t mNeedScaleCnt;
@@ -574,6 +573,9 @@ private:
     static const char KEY_TS_MAKEUP[];
     static const char KEY_TS_MAKEUP_WHITEN[];
     static const char KEY_TS_MAKEUP_CLEAN[];
+    static const char KEY_XM_MAKEUP[];
+    static const char KEY_XM_MAKEUP_WHITEN[];
+    static const char KEY_XM_MAKEUP_CLEAN[];
 #endif
     //param key for HFR batch size
     static const char KEY_QC_VIDEO_BATCH_SIZE[];
@@ -882,6 +884,7 @@ private:
     int32_t setStillMore(const QCameraParameters& );
 #ifdef TARGET_TS_MAKEUP
     int32_t setTsMakeup(const QCameraParameters& );
+    int32_t setXmMakeup(const QCameraParameters& );
 #endif
     int32_t setNoiseReductionMode(const QCameraParameters& );
     int32_t setRedeyeReduction(const QCameraParameters& );
@@ -1136,7 +1139,6 @@ private:
     bool m_bHfrMode;
     bool m_bSensorHDREnabled;             // if HDR is enabled
     bool m_bRdiMode;                // if RDI mode
-    bool m_bUbiRefocus;
     bool m_bSecureMode;
     bool m_bAeBracketingEnabled;
     int32_t mFlashValue;

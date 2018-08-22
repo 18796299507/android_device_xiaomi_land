@@ -450,6 +450,9 @@ const char QCameraParameters::KEY_QC_NOISE_REDUCTION_MODE_VALUES[] = "noise-redu
 const char QCameraParameters::KEY_TS_MAKEUP[] = "tsmakeup";
 const char QCameraParameters::KEY_TS_MAKEUP_WHITEN[] = "tsmakeup_whiten";
 const char QCameraParameters::KEY_TS_MAKEUP_CLEAN[] = "tsmakeup_clean";
+const char QCameraParameters::KEY_XM_MAKEUP[] = "xiaomi-still-beautify-values";
+const char QCameraParameters::KEY_XM_MAKEUP_WHITEN[] = "xiaomi-beauty-skin-color";
+const char QCameraParameters::KEY_XM_MAKEUP_CLEAN[] = "xiaomi-beauty-skin-smooth";
 #endif
 
 //KEY to share HFR batch size with video encoder.
@@ -3981,6 +3984,61 @@ int32_t QCameraParameters::setTsMakeup(const QCameraParameters& params)
     return NO_ERROR;
 }
 
+/*===========================================================================
+ * FUNCTION   : setXmMakeup
+ *
+ * DESCRIPTION: set setXmMakeup from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setXmMakeup(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_XM_MAKEUP);
+    const char *prev_str = get(KEY_XM_MAKEUP);
+
+    LOGH("str =%s & prev_str =%s", str, prev_str);
+
+    if (str != NULL) {
+        if (prev_str == NULL || strcmp(str, prev_str) != 0) {
+            if (prev_str == NULL) {
+                m_bNeedRestart = true;
+            } else {
+                const char* prev_enabled = strrchr(prev_str, ':');
+                const char* curr_enabled = strrchr(str, ':');
+                if (prev_enabled && curr_enabled) {
+                    prev_enabled++;
+                    curr_enabled++;
+                    m_bNeedRestart = (atoi(prev_enabled) > 0 != atoi(curr_enabled) > 0) ?
+                            true : m_bNeedRestart;
+                }
+            }
+            set(KEY_XM_MAKEUP, str);
+        }
+
+        str = params.get(KEY_XM_MAKEUP_WHITEN);
+        prev_str = get(KEY_XM_MAKEUP_WHITEN);
+        if (str != NULL) {
+            if (prev_str == NULL || strcmp(str, prev_str) != 0) {
+                set(KEY_XM_MAKEUP_WHITEN, str);
+            }
+        }
+
+        str = params.get(KEY_XM_MAKEUP_CLEAN);
+        prev_str = get(KEY_XM_MAKEUP_CLEAN);
+        if (str != NULL) {
+            if (prev_str == NULL || strcmp(str, prev_str) != 0) {
+                set(KEY_XM_MAKEUP_CLEAN, str);
+            }
+        }
+    }
+
+    return NO_ERROR;
+}
 #endif
 
 /*===========================================================================
@@ -4388,9 +4446,17 @@ int32_t QCameraParameters::setWaveletDenoise(const QCameraParameters& params)
  *==========================================================================*/
 int32_t QCameraParameters::setTemporalDenoise(const QCameraParameters& params)
 {
+    if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_CPP_TNR) == 0) {
+        LOGH("TNR is not supported");
+        return NO_ERROR;
+    }
+
 #if 1
-    LOGD("TNR is not supported.");
-    return NO_ERROR;
+    int32_t enable = property_get_int32("debug.camera.tnr_enable", 0);
+    if (!enable) {
+        LOGH("TNR is not supported");
+        return NO_ERROR;
+    }
 #endif
 
     const char *str = params.get(KEY_QC_TNR_MODE);
@@ -5137,6 +5203,7 @@ int32_t QCameraParameters::updateParameters(const String8& p,
     if ((rc = updateFlash(false)))                      final_rc = rc;
 #ifdef TARGET_TS_MAKEUP
     if ((rc = setTsMakeup(params)))                     final_rc = rc;
+    if ((rc = setXmMakeup(params)))                     final_rc = rc;
 #endif
 UPDATE_PARAM_DONE:
     needRestart = m_bNeedRestart;
@@ -7465,7 +7532,6 @@ int32_t QCameraParameters::configureAEBracketing(cam_capture_frame_config_t &fra
 int32_t QCameraParameters::configureLowLight(cam_capture_frame_config_t &frame_config)
 {
     int32_t rc = NO_ERROR;
-    uint32_t i = 0;
 
     frame_config.num_batch = 1;
     frame_config.configs[0].num_frames = getNumOfSnapshots();
@@ -7610,7 +7676,7 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
  *==========================================================================*/
 int32_t QCameraParameters::resetFrameCapture(bool commitSettings, bool lowLightEnabled)
 {
-    int32_t rc = NO_ERROR, i = 0;
+    int32_t rc = NO_ERROR;
     memset(&m_captureFrameConfig, 0, sizeof(cam_capture_frame_config_t));
 
     if (commitSettings) {
@@ -7858,8 +7924,11 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
     int32_t rc = NO_ERROR;
 
 #if 1
-    LOGD("CDS is not supported. Not applying user params for this.");
-    return rc;
+    int32_t enable = property_get_int32("debug.camera.cds_enable", 0);
+    if (!enable) {
+        LOGH("CDS is not supported. Not applying user params for this.");
+        return NO_ERROR;
+    }
 #endif
 
     if (m_bRecordingHint_new == true) {
@@ -8304,12 +8373,13 @@ int32_t QCameraParameters::parseGains(const char *gainStr, double &r_gain,
 {
     int32_t rc = NO_ERROR;
     char *saveptr = NULL;
-    char* gains = (char*) calloc(1, strlen(gainStr) + 1);
+    size_t gains_size = strlen(gainStr) + 1;
+    char* gains = (char*) calloc(1, gains_size);
     if (NULL == gains) {
         LOGE("No memory for gains");
         return NO_MEMORY;
     }
-    strlcpy(gains, gainStr, strlen(gainStr) + 1);
+    strlcpy(gains, gainStr, gains_size);
     char *token = strtok_r(gains, ",", &saveptr);
 
     if (NULL != token) {
@@ -10101,15 +10171,29 @@ char* QCameraParameters::getParameters()
 bool QCameraParameters::getTsMakeupInfo(int &whiteLevel, int &cleanLevel) const
 {
     const char* pch_makeup_enable = get(QCameraParameters::KEY_TS_MAKEUP);
-    if (pch_makeup_enable == NULL) {
-        LOGH("pch_makeup_enable = null");
-        return false;
-    }
-    bool enableMakeup =
-            (strcmp(pch_makeup_enable,"On") == 0);
-    if (enableMakeup) {
-        whiteLevel = getInt(QCameraParameters::KEY_TS_MAKEUP_WHITEN);
-        cleanLevel = getInt(QCameraParameters::KEY_TS_MAKEUP_CLEAN);
+    bool enableMakeup = false;
+    if (pch_makeup_enable != NULL) {
+        enableMakeup =
+                (strcmp(pch_makeup_enable,"On") == 0);
+        if (enableMakeup) {
+            whiteLevel = getInt(QCameraParameters::KEY_TS_MAKEUP_WHITEN);
+            cleanLevel = getInt(QCameraParameters::KEY_TS_MAKEUP_CLEAN);
+        }
+    } else {
+        pch_makeup_enable = get(QCameraParameters::KEY_XM_MAKEUP);
+        if (pch_makeup_enable != NULL) {
+            const char* xm_makeup_enable = strrchr(pch_makeup_enable, ':');
+            if (xm_makeup_enable == NULL) {
+                return false;
+            }
+            xm_makeup_enable++;
+            enableMakeup = atoi(xm_makeup_enable) > 0;
+            LOGD("Xiaomi makeup enable %d", (int)enableMakeup);
+            if (enableMakeup) {
+                whiteLevel = getInt(QCameraParameters::KEY_XM_MAKEUP_WHITEN) * 10;
+                cleanLevel = getInt(QCameraParameters::KEY_XM_MAKEUP_CLEAN) * 10;
+            }
+        }
     }
     return enableMakeup;
 }
@@ -10796,7 +10880,7 @@ int32_t QCameraParameters::getExifGpsProcessingMethod(char *gpsProcessingMethod,
     if(str != NULL) {
         memcpy(gpsProcessingMethod, ExifAsciiPrefix, EXIF_ASCII_PREFIX_SIZE);
         count = EXIF_ASCII_PREFIX_SIZE;
-        strlcpy(gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, str, strlen(str)+1);
+        strlcpy(gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, str, GPS_PROCESSING_METHOD_SIZE);
         count += (uint32_t)strlen(str);
         gpsProcessingMethod[count++] = '\0'; // increase 1 for the last NULL char
         return NO_ERROR;
@@ -11927,7 +12011,6 @@ int32_t QCameraParameters::commitParamChanges()
 QCameraParameters::QCameraReprocScaleParam::QCameraReprocScaleParam()
   : mScaleEnabled(false),
     mIsUnderScaling(false),
-    mScaleDirection(0),
     mNeedScaleCnt(0),
     mSensorSizeTblCnt(0),
     mSensorSizeTbl(NULL),
@@ -13542,7 +13625,7 @@ void QCameraParameters::setVideoBatchSize()
  *
  * RETURN     :  error value
  *==========================================================================*/
-int32_t QCameraParameters::setCustomParams(const QCameraParameters& params)
+int32_t QCameraParameters::setCustomParams(__unused const QCameraParameters& params)
 {
     int32_t rc = NO_ERROR;
 
@@ -13847,8 +13930,11 @@ int32_t QCameraParameters::setCDSMode(int32_t cds_mode, bool initCommit)
     int32_t rc = NO_ERROR;
 
 #if 1
-    LOGD("CDS is not supported.");
-    return rc;
+    int32_t enable = property_get_int32("debug.camera.cds_enable", 0);
+    if (!enable) {
+        LOGH("CDS is not supported");
+        return NO_ERROR;
+    }
 #endif
 
     if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, cds_mode)) {
@@ -14019,9 +14105,9 @@ int32_t QCameraParameters::getPicSizeFromAPK(int &width, int &height)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::setDualLedCalibration(const QCameraParameters& params)
+int32_t QCameraParameters::setDualLedCalibration(
+        __unused const QCameraParameters& params)
 {
-    int32_t rc = NO_ERROR;
     char value[PROPERTY_VALUE_MAX];
     int32_t calibration = 0;
 

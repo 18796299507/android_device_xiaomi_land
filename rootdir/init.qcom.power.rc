@@ -95,6 +95,11 @@ on enable-low-power
     write /sys/devices/system/cpu/cpu4/cpufreq/interactive/sampling_down_factor 40000
     write /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq 345600
 
+    write /sys/kernel/fast_charge/force_fast_charge 1
+
+    write /sys/class/power_supply/battery/constant_charge_current_max 3000000
+    write /sys/class/power_supply/bms/temp_warm 500
+
     # HMP Task packing settings
     write /sys/devices/system/cpu/cpu0/sched_prefer_idle 0
     write /sys/devices/system/cpu/cpu1/sched_prefer_idle 0
